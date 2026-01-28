@@ -1,129 +1,74 @@
-# Purpose
-This document defines rules, constraints, and expectations for any agentic AI (Codex, Copilot, ChatGPT, etc.) operating in this repository. 
-  
-AI agents are treated as junior contributors: helpful, fast, but constrained by architecture and intent.
-
-This file exists to:
-  * Prevent architectural drift
-  * Avoid "helpful" violations of core principles
-  * Ensure AI output aligns with long-term maintainability
-  
-This document **overrides default AI behaviour** when operating in this repo. 
-
-# Canonical Architecture Reference
-
-All AI contributions must comply with `architecture_requirements.md`.
-
-If an AI suggestion conflicts with that document, **the architecture wins**.
-
-# Non-Negotiable Rules for AI Agents
-
-### 1. No Architectural Assumptions
-Agents must **never invent structure**.
-
-Before generating code, the agent must:
-- Ask where the code lives (Controller / Service / View / Model)
-- Ask which interfaces already exist
-- Ask how the system is bootstrapped
-
-If unsure, **pause and ask** instead of guessing.
-
-### 2. Respect Layer Boundaries (Strict)
-Agents **must not**:
-- Put logic in Views
-- Put UnityEngine dependencies in Services
-- Introduce cross-service calls without interfaces/events
-- Add “manager” or “god” classes
-
-If a solution requires violating a boundary, the agent must:
-- Explicitly call it out
-- Propose an alternative that respects boundaries
-
-### 3. Interface-First Development
-For any new system or service:
-- Define interfaces **before** implementations
-- Never reference concrete classes across systems
-- Never pass Unity types (`GameObject`, `MonoBehaviour`, etc.) through interfaces
-
-Prefer:
-`IExampleService` over `ExampleService`
-
-### 4. No Silent Unity Dependencies
-Agents must **never** introduce:
-- `FindObjectOfType`
-- `GetComponent`
-- Hidden scene dependencies
-- Serialized fields on services
-All Unity binding must occur in:
-- Controllers
-- Bootstrappers
-- Service Locators
-If Unity APIs are required, they must be **explicit and justified**.
-
-### 5. Incremental, Minimal Changes Only
-Agents must:
-- Change the **smallest surface area** possible
-- Avoid refactors unless explicitly requested
-- Preserve all existing behavior by default
-If refactoring is beneficial, the agent must:
-- Explain *why*
-- Scope it tightly
-- Offer it as an **optional step**
-
-### 6. Tests are Logic-Only
-Agents may propose or write tests only for:
-- Services
-- Analyzers
-- Validators
-- Pure Logic
-Agents must not:
-- Write Unity PlayMode tests unless requested
-- Mock Unity APIs
-- Test Views or MonoBehaviours directly
-
-### 7. CI / Automation Constraints
-Agents must assume:
-- CI does **not** run Unity
-- No Unity licensing is available in CI
-- Only out-of-engine checks are allowed unless explicitly approved
-
-# Communication Expectations
-### When to ask questions
-Agents must ask before acting if:
-- File locations are ambiguous
-- Multiple architectural interpretations exist
-- A change could affect multiple systems
-- The request is underspecified
-
-### How to Present Solutions
-Agents should:
-- Prefer concrete code over prose
-- Label assumptions explicitly
-- Call out architectural implications
-- Avoid "magic" or "trust me" solutions
-
-# Forbidden Behaviors
-Agents must never:
-- Introduce global state or singletons
-- Add static service access
-- Hardcode asset paths
-- Bypass interfaces for convenience
-- "Just make it work" at the cost of architecture
-
-# Mental Model for AI Agents
-When in doubt, operate under the following hierarchy:
-1. Architecture Requirements
-2. Maintainability
-3. Testability
-4. Minimalism
-5. Speed
-Speed is **last**.
-
-# Final Note
-This repo values:
-- Replaceable Systems
-- Clear Boundaries
-- Intentional complexity
-- Long-term composability
-If your solution is clever but fragile, **it is wrong**.
-If your solution is boring but correct, **it is right**.
+# Philosophy
+  * Every system must be replaceable without affecting others.
+  * Views are disposable, services are reusable.
+  * Controllers are glue, but should have no logic of their own.
+  * Nothing should know where a tile is rendered, only that it's rendered.
+  * Every major system needs to be built to easily facilitate additions of new element.
+# Core Principles
+  * Modular Architecture
+    - Every system must be isolated into independent modules.
+    - No system should directly reference the internal state of another.
+    - Avoid monolithic "god classes"; decompose logic by domain responsibility.
+  * Dependency Inversion
+    - All services must be referenced via interfaces, not concrete classes.
+    - Use dependency injection for all service and controller initialization.
+  * Event-Driven Communication
+    - Use events, delegates, or `UnityEvent` based systems for cross-module communication.
+    - No system should call another’s methods unless through its interface or event system.
+  * Testable Codebase
+    - Logic-heavy classes (e.g., services, analyzers, validators) should be testable in isolation.
+    - No reliance on Unity-specific APIs in service-layer logic (e.g., no `MonoBehaviour`, `GameObject`, etc.).
+# System Boundaries
+  * Controller
+    - Routes user/system input to services; initializes scene-specificelements
+  * Service
+    - Handles logic, rule enforcement, and state transitions
+  * Model
+    - Pure data classes and game state containers
+  * View
+    - Only renders UI or visuals based on provided state
+  * ScriptableObject
+    - Configuration, metadata, or static data storage
+# Script Structure & Responsibilities
+  * Controllers
+    - UI input routing
+    - Event registration/detachment
+    - Service orchestration
+    - View binding (indirect)
+  * Services
+    - Pure logic (rules, calculations, gameplay state)
+    - Must implement interfaces
+    - Must not depend on Unity types or MonoBehaviours
+    - All state must be internally encapsulated
+  * Interfaces
+    - Define all contracts for services and systems
+    - Required for all services
+    - Avoid passing Unity types like `GameObject`, `MonoBehaviour` through interfaces
+  * Views
+    - Assigned through Unity Editor
+    - Listen to state and apply visual changes only
+    - Should never mutate game state directly
+    - Implement interface-based updates
+  * ScriptableObjects
+    - Used for:
+      -- Configs (difficulty, health values, level layouts)
+      -- Metadata (symbol definitions, grid sizes)
+      -- Static rules (spawn tables, loot tables)
+    - Must be created using `ScriptableObject.CreateInstance`
+# Unity Integration Best Practices
+  * All instantiation and MonoBehaviour bindings must be handled in the Bootstrapper or a ServiceLocator.
+  * Scene objects should never access each other using `FindObjectOfType` or `GetComponent`, use injected references only.
+  * Avoid serialized fields on services, use runtime configuration exclusively.
+  * Separate runtime logic from editor/inspector logic. Use dedicated editor scripts when necessary.
+# Testing and Debugging Best Practices
+  * Include debug logs only through a centralized `ILogService` or conditional compile flags.
+  * Every service must be mockable (via interface) for future unit tests.
+  * Favor functional purity: return values instead of relying on side effects.
+  * Do not access UnityEngine APIs (Camera, Input, Time) from services.
+# Anti-Patterns to Avoid
+  * `public static` access to services or managers
+  * `FindObjectOfType`, `GetComponent` in services or core logic
+  * Hardcoded references to prefabs or asset paths in code
+  * Large monobehaviors controlling multiple domains
+  * Direct cross-service interaction
+  * Logic in views
