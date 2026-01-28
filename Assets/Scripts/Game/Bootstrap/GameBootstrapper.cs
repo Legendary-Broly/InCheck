@@ -4,7 +4,9 @@ using InCheck.Core.Interfaces;
 using InCheck.Core.Services;
 using InCheck.Game.Configs;
 using InCheck.Game.Controllers;
+using InCheck.Game.Interfaces;
 using InCheck.Game.Models;
+using InCheck.Game.Services;
 
 namespace InCheck.Game.Bootstrap
 {
@@ -26,7 +28,19 @@ namespace InCheck.Game.Bootstrap
             _serviceContainer.Register<ILogService>(new NullLogService());
             _serviceContainer.Register<IEventBus>(new EventBus());
 
-            var gameState = new GameState(gameConfig.StartingHealth, gameConfig.ActionPointsPerTurn);
+            var idGenerator = new IncrementingEntityIdGenerator();
+            var gameSetupService = new GameSetupService(idGenerator);
+
+            _serviceContainer.Register<IEntityIdGenerator>(idGenerator);
+            _serviceContainer.Register<IGameSetupService>(gameSetupService);
+
+            var setupConfig = new GameSetupConfig(
+                gameConfig.BoardWidth,
+                gameConfig.BoardHeight,
+                gameConfig.StartingHealth,
+                new Coord(gameConfig.PlayerStartX, gameConfig.PlayerStartY));
+
+            var gameState = gameSetupService.CreateGameState(setupConfig);
 
             _gameController = new GameController(
                 _serviceContainer.Resolve<ILogService>(),
